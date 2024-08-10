@@ -1,6 +1,6 @@
 ﻿using MessagePack.Formatters;
-using System.Linq;
 using System.Linq.Expressions;
+using System.Reflection;
 
 namespace MessagePack.CamelCase;
 
@@ -13,10 +13,20 @@ public class CamelCaseContractlessFormatter<T> : IMessagePackFormatter<T>
             null,
             [one, other, Expression.Constant(StringComparison.OrdinalIgnoreCase)]);
 
-    private readonly record struct Local(Type Type, string Name) 
+    private sealed class SetterLocal : Local
     {
-        public Expression ParameterExpression { get; } = Expression.Parameter(Type, Name);
+        public required MethodInfo Setter { get; init; }
     }
+
+    private class Local
+    {
+        public required Type Type { get; init; }
+        public required string Name { get; init; }
+        public ParameterExpression ParameterExpression 
+            => Expression.Parameter(Type, Name);
+    }
+
+    private delegate T DeserializeDelegate(ref MessagePackReader reader, MessagePackSerializerOptions options);
 
     private static void Test()
     {
@@ -29,7 +39,7 @@ public class CamelCaseContractlessFormatter<T> : IMessagePackFormatter<T>
             Expression.Constant(MessagePackType.String));
         var readPropertyName = Expression.Call(reader, nameof(MessagePackReader.ReadString), null, null);
 
-        MethodCallExpression GetFormatter(Type typeParameter) 
+        MethodCallExpression GetFormatter(Type typeParameter)
             => Expression.Call(resolver, "GetFormatter", [typeParameter], null);
         MethodCallExpression Deserialize(Type type)
             => Expression.Call(GetFormatter(type), "Deserialize", null, [reader, options]);
@@ -37,14 +47,25 @@ public class CamelCaseContractlessFormatter<T> : IMessagePackFormatter<T>
         var ctorLocals = type
             .Constructor
             .GetParameters()
-            .Select(param => new Local(param.ParameterType, param.Name))// TODO When is this null?
+            .Select(param => new Local { Type = param.ParameterType, Name = param.Name })// TODO When is this null?
             .ToArray();
         var setterLocals = type
             .SettersWithNoMatchingConstructorParameter
-            .Select(setter => new Local(setter.PropertyType, setter.Name));
-        var locals = ctorLocals.Concat(setterLocals);
+            .Select(setter => new SetterLocal { Type = setter.PropertyType, Name = setter.Name, Setter = setter.SetMethod! })
+            .ToArray();
 
-        Expression CallReadStringAndAssignResultToLocal() 
+        Expression CreateResult()
+        {
+            var ctorCall = Expression.New(
+                type.Constructor,
+                ctorLocals.Select(local => local.ParameterExpression));
+            var sets = setterLocals
+                .Select(local => Expression.Bind(local.Setter, local.ParameterExpression));
+            return Expression.MemberInit(ctorCall, sets);
+        }
+
+        var locals = ctorLocals.Concat(setterLocals);
+        Expression ReadAndAssignPropertyToLocal()
         {
             var propertyNameLocal = Expression.Parameter(typeof(string));
             var trySetLocal = locals.Aggregate(
@@ -67,11 +88,11 @@ public class CamelCaseContractlessFormatter<T> : IMessagePackFormatter<T>
             Expression.Loop(
                 Expression.IfThenElse(
                     nextMessageTypeIsString,
-                    CallReadStringAndAssignResultToLocal(),
-                    Expression.Break(resultLabel, )
-
-        Expression.New(type.Constructor, )
-
+                    ReadAndAssignPropertyToLocal(),
+                    Expression.Break(resultLabel, CreateResult())),
+                resultLabel));
+        var lambda = Expression.Lambda<DeserializeDelegate>(body, reader, options);
+        return lambda.Compile();
     }
 
 
@@ -80,7 +101,6 @@ public class CamelCaseContractlessFormatter<T> : IMessagePackFormatter<T>
     {
         reader.ReadMapHeader();
         options.Security.DepthStep(ref reader);
-        reader.NextMessagePackType is MessagePackType.
         reader.Depth--;
         throw new NotImplementedException();
     }
