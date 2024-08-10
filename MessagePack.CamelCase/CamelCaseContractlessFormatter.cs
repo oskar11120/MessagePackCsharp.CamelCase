@@ -173,7 +173,5 @@ public sealed class CamelCaseContractlessFormatter<T> : IMessagePackFormatter<T>
     }
 
     public void Serialize(ref MessagePackWriter writer, T value, MessagePackSerializerOptions options)
-    {
-        serialize(ref writer, value, options);
-    }
+        => serialize(ref writer, value, options);
 }
