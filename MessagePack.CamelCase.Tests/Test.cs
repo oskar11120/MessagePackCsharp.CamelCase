@@ -82,6 +82,7 @@ public abstract class Tests<TExpectation>
     public void SerializationAndDeserialization()
     {
         var serialized = MessagePackSerializer.Serialize(Expectation, options);
+        TestContext.WriteLine(MessagePackSerializer.ConvertToJson(serialized));
         var result = MessagePackSerializer.Deserialize<TExpectation>(serialized.AsMemory(), options);
         Assert.That(result, Is.EqualTo(Expectation));
     }
