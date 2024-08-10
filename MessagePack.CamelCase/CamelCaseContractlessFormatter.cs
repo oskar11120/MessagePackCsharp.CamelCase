@@ -11,7 +11,7 @@ public sealed class CamelCaseContractlessFormatter<T> : IMessagePackFormatter<T>
 
     private static CamelCaseContractlessFormatter<T>? Create()
         => typeof(T) == typeof(object) || BuiltinResolver.Instance.GetFormatter<T>() is null ?
-        Create() :
+        new CamelCaseContractlessFormatter<T>() :
         null;
 
     private CamelCaseContractlessFormatter()
@@ -46,9 +46,11 @@ public sealed class CamelCaseContractlessFormatter<T> : IMessagePackFormatter<T>
         var reader = Expression.Parameter(typeof(MessagePackReader).MakeByRefType(), "reader");
         var options = Expression.Parameter(typeof(MessagePackSerializerOptions), "options");
         var resolver = Expression.Property(options, nameof(MessagePackSerializerOptions.Resolver));
-        var nextMessageTypeIsString = Expression.Equal(
-            Expression.Property(reader, nameof(MessagePackReader.NextMessagePackType)),
-            Expression.Constant(MessagePackType.String));
+        var nextMessageTypeIsString = Expression.AndAlso(
+            Expression.IsFalse(Expression.Property(reader, nameof(MessagePackReader.End))),
+            Expression.Equal(
+                Expression.Property(reader, nameof(MessagePackReader.NextMessagePackType)),
+                Expression.Constant(MessagePackType.String)));
         var readPropertyName = Expression.Call(reader, nameof(MessagePackReader.ReadString), null, null);
 
         MethodCallExpression GetFormatter(Type typeParameter)
@@ -89,7 +91,7 @@ public sealed class CamelCaseContractlessFormatter<T> : IMessagePackFormatter<T>
                         Deserialize(local.Type)),
                     otherwise));
             return Expression.Block(
-                [propertyNameLocal],
+                locals.Select(local => local.ParameterExpression).Append(propertyNameLocal),
                 Expression.Assign(propertyNameLocal, readPropertyName),
                 trySetLocal);
         }
@@ -104,7 +106,14 @@ public sealed class CamelCaseContractlessFormatter<T> : IMessagePackFormatter<T>
                     Expression.Break(resultLabel, CreateResult())),
                 resultLabel));
         var lambda = Expression.Lambda<DeserializeDelegate>(body, reader, options);
-        return lambda.Compile();
+        try
+        {
+            return lambda.Compile();
+        }
+        catch (Exception ex)
+        {
+            throw;
+        }
     }
 
     private static readonly DeserializeDelegate deserialize = CreateDeserializeDelegate();

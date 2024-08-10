@@ -2,14 +2,14 @@ using MessagePack.Resolvers;
 
 namespace MessagePack.CamelCase.Tests;
 
-public sealed record SomeRecord(int Integer);
+public sealed record SomeRecord(string Text);
 
 public class Tests
 {
     [Test]
     public void Deserialize_Works()
     {
-        var expectation = new SomeRecord(1);
+        var expectation = new SomeRecord("aaa");
         var serialized = MessagePackSerializer.Serialize(expectation, ContractlessStandardResolver.Options);
         var deserializeOptions = ContractlessStandardResolver
             .Options
