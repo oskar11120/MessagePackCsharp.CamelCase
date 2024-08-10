@@ -14,6 +14,8 @@ internal sealed record DeserializeTypeInfo(
             var ctors = type.GetConstructors();
             if (ctors.Length is 1)
                 return ctors[0];
+            if (type.IsValueType && ctors.Length is 2)
+                return ctors.Single(ctor => ctor.GetParameters().Length is not 0);
             var matching = ctors
                 .Where(ctor => ctor.GetCustomAttribute<SerializationConstructorAttribute>() is not null)
                 .ToArray();
