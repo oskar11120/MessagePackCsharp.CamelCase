@@ -7,15 +7,24 @@ namespace MessagePack.CamelCase;
 
 public sealed class CamelCaseContractlessFormatter<T> : IMessagePackFormatter<T>
 {
-    public static readonly CamelCaseContractlessFormatter<T>? Instance = Create();
+    public static readonly CamelCaseContractlessFormatter<T>? Instance;
+    private static readonly DeserializeDelegate deserialize;
 
-    private static CamelCaseContractlessFormatter<T>? Create()
-        => typeof(T) == typeof(object) || BuiltinResolver.Instance.GetFormatter<T>() is null ?
-        new CamelCaseContractlessFormatter<T>() :
-        null;
+    static CamelCaseContractlessFormatter()
+    {
+        if (typeof(T) == typeof(object) || BuiltinResolver.Instance.GetFormatter<T>() is null)
+        {
+            deserialize = CreateDeserializeDelegate();
+            Instance = new();
+        }
+        else
+        {
+            deserialize = null!;
+        }
+    }
 
     private CamelCaseContractlessFormatter()
-    {        
+    {
     }
 
     private sealed class SetterLocal : Local
@@ -27,8 +36,9 @@ public sealed class CamelCaseContractlessFormatter<T> : IMessagePackFormatter<T>
     {
         public required Type Type { get; init; }
         public required string Name { get; init; }
-        public ParameterExpression ParameterExpression 
-            => Expression.Parameter(Type, Name);
+        private ParameterExpression? expression;
+        public ParameterExpression Expression
+            => expression ??= System.Linq.Expressions.Expression.Variable(Type, Name);
     }
 
     private delegate T DeserializeDelegate(ref MessagePackReader reader, MessagePackSerializerOptions options);
@@ -72,33 +82,33 @@ public sealed class CamelCaseContractlessFormatter<T> : IMessagePackFormatter<T>
         {
             var ctorCall = Expression.New(
                 type.Constructor,
-                ctorLocals.Select(local => local.ParameterExpression));
+                ctorLocals.Select(local => local.Expression));
             var sets = setterLocals
-                .Select(local => Expression.Bind(local.Setter, local.ParameterExpression));
+                .Select(local => Expression.Bind(local.Setter, local.Expression));
             return Expression.MemberInit(ctorCall, sets);
         }
 
         var locals = ctorLocals.Concat(setterLocals);
         Expression ReadAndAssignPropertyToLocal()
         {
-            var propertyNameLocal = Expression.Parameter(typeof(string));
+            var propertyNameLocal = Expression.Variable(typeof(string));
             var trySetLocal = locals.Aggregate(
                 Expression.Empty() as Expression,
                 (otherwise, local) => Expression.IfThenElse(
                     IgnoreCaseEqual(propertyNameLocal, Expression.Constant(local.Name)),
                     Expression.Assign(
-                        local.ParameterExpression,
+                        local.Expression,
                         Deserialize(local.Type)),
                     otherwise));
             return Expression.Block(
-                locals.Select(local => local.ParameterExpression).Append(propertyNameLocal),
+                locals.Select(local => local.Expression).Append(propertyNameLocal),
                 Expression.Assign(propertyNameLocal, readPropertyName),
                 trySetLocal);
         }
 
         LabelTarget resultLabel = Expression.Label(type.ClrType);
         var body = Expression.Block(
-            locals.Select(local => local.ParameterExpression),
+            locals.Select(local => local.Expression),
             Expression.Loop(
                 Expression.IfThenElse(
                     nextMessageTypeIsString,
@@ -115,8 +125,6 @@ public sealed class CamelCaseContractlessFormatter<T> : IMessagePackFormatter<T>
             throw;
         }
     }
-
-    private static readonly DeserializeDelegate deserialize = CreateDeserializeDelegate();
 
     public T Deserialize(ref MessagePackReader reader, MessagePackSerializerOptions options)
     {
