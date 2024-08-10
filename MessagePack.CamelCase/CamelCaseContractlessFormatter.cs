@@ -55,29 +55,16 @@ public sealed class CamelCaseContractlessFormatter<T> : IMessagePackFormatter<T>
         var type = TypeInfo.Create<T>();
         var reader = Expression.Parameter(typeof(MessagePackReader).MakeByRefType(), "reader");
         var options = Expression.Parameter(typeof(MessagePackSerializerOptions), "options");
-        var resolver = Expression.Property(options, nameof(MessagePackSerializerOptions.Resolver));
-        var nextMessageTypeIsString = Expression.AndAlso(
-            Expression.IsFalse(Expression.Property(reader, nameof(MessagePackReader.End))),
-            Expression.Equal(
-                Expression.Property(reader, nameof(MessagePackReader.NextMessagePackType)),
-                Expression.Constant(MessagePackType.String)));
-        var readPropertyName = Expression.Call(reader, nameof(MessagePackReader.ReadString), null, null);
-
-        MethodCallExpression GetFormatter(Type typeParameter)
-            => Expression.Call(resolver, "GetFormatter", [typeParameter], null);
-        MethodCallExpression Deserialize(Type type)
-            => Expression.Call(GetFormatter(type), "Deserialize", null, [reader, options]);
 
         var ctorLocals = type
             .Constructor
             .GetParameters()
-            .Select(param => new Local { Type = param.ParameterType, Name = param.Name })// TODO When is this null?
+            .Select(param => new Local { Type = param.ParameterType, Name = param.Name! })// TODO When is this null?
             .ToArray();
         var setterLocals = type
             .SettersWithNoMatchingConstructorParameter
             .Select(setter => new SetterLocal { Type = setter.PropertyType, Name = setter.Name, Setter = setter.SetMethod! })
             .ToArray();
-
         Expression CreateResult()
         {
             var ctorCall = Expression.New(
@@ -88,6 +75,12 @@ public sealed class CamelCaseContractlessFormatter<T> : IMessagePackFormatter<T>
             return Expression.MemberInit(ctorCall, sets);
         }
 
+        var resolver = Expression.Property(options, nameof(MessagePackSerializerOptions.Resolver));
+        var readPropertyName = Expression.Call(reader, nameof(MessagePackReader.ReadString), null, null);
+        MethodCallExpression GetFormatter(Type typeParameter)
+            => Expression.Call(resolver, "GetFormatter", [typeParameter], null);
+        MethodCallExpression Deserialize(Type type)
+            => Expression.Call(GetFormatter(type), "Deserialize", null, [reader, options]);
         var locals = ctorLocals.Concat(setterLocals);
         Expression ReadAndAssignPropertyToLocal()
         {
@@ -106,12 +99,23 @@ public sealed class CamelCaseContractlessFormatter<T> : IMessagePackFormatter<T>
                 trySetLocal);
         }
 
-        LabelTarget resultLabel = Expression.Label(type.ClrType);
+        var readMapHeader = Expression.Call(reader, nameof(MessagePackReader.ReadMapHeader), null, null);
+        var mapLengthLocal = Expression.Variable(typeof(int), "length");
+        var mapIndexLocal = Expression.Variable(typeof(int), "index");
+        var incrementIndex_anythingLeft = Expression.Block(
+            Expression.Assign(mapIndexLocal, Expression.Increment(mapIndexLocal)),
+            Expression.LessThanOrEqual(mapIndexLocal, mapLengthLocal));
+        var resultLabel = Expression.Label(type.ClrType);
         var body = Expression.Block(
-            locals.Select(local => local.Expression),
+            locals
+                .Select(local => local.Expression)
+                .Append(mapLengthLocal)
+                .Append(mapIndexLocal),
+            Expression.Assign(mapLengthLocal, readMapHeader),
+            Expression.Assign(mapIndexLocal, Expression.Constant(0)),
             Expression.Loop(
                 Expression.IfThenElse(
-                    nextMessageTypeIsString,
+                    incrementIndex_anythingLeft,
                     ReadAndAssignPropertyToLocal(),
                     Expression.Break(resultLabel, CreateResult())),
                 resultLabel));
@@ -121,7 +125,6 @@ public sealed class CamelCaseContractlessFormatter<T> : IMessagePackFormatter<T>
 
     public T Deserialize(ref MessagePackReader reader, MessagePackSerializerOptions options)
     {
-        reader.ReadMapHeader();
         options.Security.DepthStep(ref reader);
         var result = deserialize(ref reader, options);
         reader.Depth--;
