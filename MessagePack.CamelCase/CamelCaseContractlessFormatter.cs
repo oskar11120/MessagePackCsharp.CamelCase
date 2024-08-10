@@ -1,17 +1,22 @@
 ﻿using MessagePack.Formatters;
+using MessagePack.Resolvers;
 using System.Linq.Expressions;
 using System.Reflection;
 
 namespace MessagePack.CamelCase;
 
-public class CamelCaseContractlessFormatter<T> : IMessagePackFormatter<T>
+public sealed class CamelCaseContractlessFormatter<T> : IMessagePackFormatter<T>
 {
-    private static MethodCallExpression IgnoreCaseEqual(Expression one, Expression other) =>
-        Expression.Call(
-            typeof(string),
-            nameof(string.Equals),
-            null,
-            [one, other, Expression.Constant(StringComparison.OrdinalIgnoreCase)]);
+    public static readonly CamelCaseContractlessFormatter<T>? Instance = Create();
+
+    private static CamelCaseContractlessFormatter<T>? Create()
+        => typeof(T) == typeof(object) || BuiltinResolver.Instance.GetFormatter<T>() is null ?
+        Create() :
+        null;
+
+    private CamelCaseContractlessFormatter()
+    {        
+    }
 
     private sealed class SetterLocal : Local
     {
@@ -28,7 +33,14 @@ public class CamelCaseContractlessFormatter<T> : IMessagePackFormatter<T>
 
     private delegate T DeserializeDelegate(ref MessagePackReader reader, MessagePackSerializerOptions options);
 
-    private static void Test()
+    private static MethodCallExpression IgnoreCaseEqual(Expression one, Expression other)
+        => Expression.Call(
+            typeof(string),
+            nameof(string.Equals),
+            null,
+            [one, other, Expression.Constant(StringComparison.OrdinalIgnoreCase)]);
+
+    private static DeserializeDelegate CreateDeserializeDelegate()
     {
         var type = TypeInfo.Create<T>();
         var reader = Expression.Parameter(typeof(MessagePackReader).MakeByRefType(), "reader");
@@ -95,14 +107,15 @@ public class CamelCaseContractlessFormatter<T> : IMessagePackFormatter<T>
         return lambda.Compile();
     }
 
-
+    private static readonly DeserializeDelegate deserialize = CreateDeserializeDelegate();
 
     public T Deserialize(ref MessagePackReader reader, MessagePackSerializerOptions options)
     {
         reader.ReadMapHeader();
         options.Security.DepthStep(ref reader);
+        var result = deserialize(ref reader, options);
         reader.Depth--;
-        throw new NotImplementedException();
+        return result;
     }
 
     public void Serialize(ref MessagePackWriter writer, T value, MessagePackSerializerOptions options)
