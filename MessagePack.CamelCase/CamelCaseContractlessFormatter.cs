@@ -140,16 +140,18 @@ public sealed class CamelCaseContractlessFormatter<T> : IMessagePackFormatter<T>
         var writer = Expression.Parameter(typeof(MessagePackWriter).MakeByRefType(), "writer");
 
         var writeMapHeader = Expression.Call(
-            writer, 
-            nameof(MessagePackWriter.WriteMapHeader), 
-            null, 
+            writer,
+            nameof(MessagePackWriter.WriteMapHeader),
+            null,
             Expression.Constant(type.Getters.Length));
 
+        var spanCtor = typeof(ReadOnlySpan<byte>).GetConstructor([typeof(byte[])])!;
         Expression WriteName(PropertyInfo getter)
         {
             var nameCamel = char.ToLowerInvariant(getter.Name[0]) + getter.Name[1..];
             var bytesCamel = Encoding.UTF8.GetBytes(nameCamel);
-            return Expression.Call(writer, nameof(MessagePackWriter.Write), null, Expression.Constant(bytesCamel));
+            var bytesCamelSpan = Expression.New(spanCtor, Expression.Constant(bytesCamel));
+            return Expression.Call(writer, nameof(MessagePackWriter.WriteString), null, bytesCamelSpan);
         }
         MethodCallExpression Serialize(Type type, Expression value) => Expression.Call(
             OptionsExpressions.GetFormatter(type),
@@ -170,6 +172,8 @@ public sealed class CamelCaseContractlessFormatter<T> : IMessagePackFormatter<T>
         return lambda.Compile();
     }
 
-    public void Serialize(ref MessagePackWriter writer, T value, MessagePackSerializerOptions options) 
-        => serialize(ref writer, value, options);
+    public void Serialize(ref MessagePackWriter writer, T value, MessagePackSerializerOptions options)
+    {
+        serialize(ref writer, value, options);
+    }
 }

@@ -26,15 +26,15 @@ public abstract class Test<TExpectation>
     protected abstract TExpectation Expectation { get; }
 
     [Test]
-    public void Deserialize_Works()
+    public void Serialization_Works()
     {
-        var serialized = MessagePackSerializer.Serialize(Expectation, ContractlessStandardResolver.Options);
-        var deserializeOptions = ContractlessStandardResolver
+        var options = ContractlessStandardResolver
             .Options
             .WithResolver(CompositeResolver.Create(
                 CamelCaseContractlessFormatterResolver.Instance,
                 ContractlessStandardResolver.Instance));
-        var result = MessagePackSerializer.Deserialize<TExpectation>(serialized.AsMemory(), deserializeOptions);
+        var serialized = MessagePackSerializer.Serialize(Expectation, options);
+        var result = MessagePackSerializer.Deserialize<TExpectation>(serialized.AsMemory(), options);
         Assert.That(result, Is.EqualTo(Expectation));
     }
 }
