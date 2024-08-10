@@ -21,8 +21,8 @@ public sealed class CamelCaseContractlessFormatter<T> : IMessagePackFormatter<T>
 
     private CamelCaseContractlessFormatter()
     {
-        serialize = null!;
         deserialize = CreateDeserializeDelegate();
+        serialize = CreateSerializeDelegate();
     }
 
     private sealed class SetterLocal : Local
@@ -46,11 +46,20 @@ public sealed class CamelCaseContractlessFormatter<T> : IMessagePackFormatter<T>
             null,
             [one, other, Expression.Constant(StringComparison.OrdinalIgnoreCase)]);
 
+    private static class OptionsExpressions
+    {
+        public static readonly ParameterExpression Options
+            = Expression.Parameter(typeof(MessagePackSerializerOptions), "options");
+        public static readonly MemberExpression Resolver
+            = Expression.Property(Options, nameof(MessagePackSerializerOptions.Resolver));
+        public static MethodCallExpression GetFormatter(Type typeParameter)
+            => Expression.Call(Resolver, "GetFormatter", [typeParameter], null);
+    }
+
     private static DeserializeDelegate CreateDeserializeDelegate()
     {
-        var type = TypeInfo.Create<T>();
+        var type = DeserializeTypeInfo.Create<T>();
         var reader = Expression.Parameter(typeof(MessagePackReader).MakeByRefType(), "reader");
-        var options = Expression.Parameter(typeof(MessagePackSerializerOptions), "options");
 
         var ctorLocals = type
             .Constructor
@@ -71,12 +80,9 @@ public sealed class CamelCaseContractlessFormatter<T> : IMessagePackFormatter<T>
             return Expression.MemberInit(ctorCall, sets);
         }
 
-        var resolver = Expression.Property(options, nameof(MessagePackSerializerOptions.Resolver));
         var readPropertyName = Expression.Call(reader, nameof(MessagePackReader.ReadString), null, null);
-        MethodCallExpression GetFormatter(Type typeParameter)
-            => Expression.Call(resolver, "GetFormatter", [typeParameter], null);
         MethodCallExpression Deserialize(Type type)
-            => Expression.Call(GetFormatter(type), "Deserialize", null, [reader, options]);
+            => Expression.Call(OptionsExpressions.GetFormatter(type), "Deserialize", null, [reader, OptionsExpressions.Options]);
         var locals = ctorLocals.Concat(setterLocals);
         Expression ReadAndAssignPropertyToLocal()
         {
@@ -115,7 +121,7 @@ public sealed class CamelCaseContractlessFormatter<T> : IMessagePackFormatter<T>
                     ReadAndAssignPropertyToLocal(),
                     Expression.Break(resultLabel, CreateResult())),
                 resultLabel));
-        var lambda = Expression.Lambda<DeserializeDelegate>(body, reader, options);
+        var lambda = Expression.Lambda<DeserializeDelegate>(body, reader, OptionsExpressions.Options);
         return lambda.Compile();
     }
 
@@ -127,9 +133,13 @@ public sealed class CamelCaseContractlessFormatter<T> : IMessagePackFormatter<T>
         return result;
     }
 
+    private static SerializeDelegate CreateSerializeDelegate()
+    {
+        var type = SerializeTypeInfo.Create<T>();
+        var writer = Expression.Parameter(typeof(MessagePackWriter).MakeByRefType(), "writer");
 
 
-
+    }
 
     public void Serialize(ref MessagePackWriter writer, T value, MessagePackSerializerOptions options)
         => serialize(ref writer, value, options);

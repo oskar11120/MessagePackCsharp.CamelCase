@@ -1,13 +1,12 @@
 ﻿using System.Reflection;
 
-
 namespace MessagePack.CamelCase;
-internal sealed record TypeInfo(
+internal sealed record DeserializeTypeInfo(
     Type ClrType,
     ConstructorInfo Constructor,
     PropertyInfo[] SettersWithNoMatchingConstructorParameter)
 {
-    public static TypeInfo Create<T>()
+    public static DeserializeTypeInfo Create<T>()
     {
         var type = typeof(T);
         ConstructorInfo GetCtor()
