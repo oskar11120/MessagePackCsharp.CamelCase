@@ -23,16 +23,16 @@ public class Test_WithBuiltinsAndNestedRecord : Test<WithBuiltinsAndNestedRecord
 
 public abstract class Test<TExpectation>
 {
+    private static readonly MessagePackSerializerOptions options = ContractlessStandardResolver
+        .Options
+        .WithResolver(CompositeResolver.Create(
+            CamelCaseContractlessFormatterResolver.Instance,
+            ContractlessStandardResolver.Instance));
     protected abstract TExpectation Expectation { get; }
 
     [Test]
     public void Serialization_Works()
     {
-        var options = ContractlessStandardResolver
-            .Options
-            .WithResolver(CompositeResolver.Create(
-                CamelCaseContractlessFormatterResolver.Instance,
-                ContractlessStandardResolver.Instance));
         var serialized = MessagePackSerializer.Serialize(Expectation, options);
         var result = MessagePackSerializer.Deserialize<TExpectation>(serialized.AsMemory(), options);
         Assert.That(result, Is.EqualTo(Expectation));
