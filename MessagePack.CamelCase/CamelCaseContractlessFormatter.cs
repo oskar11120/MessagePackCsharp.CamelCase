@@ -3,6 +3,7 @@ using MessagePack.Resolvers;
 using System.Collections;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Text;
 
 namespace MessagePack.CamelCase;
 
@@ -138,9 +139,37 @@ public sealed class CamelCaseContractlessFormatter<T> : IMessagePackFormatter<T>
         var type = SerializeTypeInfo.Create<T>();
         var writer = Expression.Parameter(typeof(MessagePackWriter).MakeByRefType(), "writer");
 
+        var writeMapHeader = Expression.Call(
+            writer, 
+            nameof(MessagePackWriter.WriteMapHeader), 
+            null, 
+            Expression.Constant(type.Getters.Length));
 
+        Expression WriteName(PropertyInfo getter)
+        {
+            var nameCamel = char.ToLowerInvariant(getter.Name[0]) + getter.Name[1..];
+            var bytesCamel = Encoding.UTF8.GetBytes(nameCamel);
+            return Expression.Call(writer, nameof(MessagePackWriter.Write), null, Expression.Constant(bytesCamel));
+        }
+        MethodCallExpression Serialize(Type type, Expression value) => Expression.Call(
+            OptionsExpressions.GetFormatter(type),
+            "Serialize",
+            null,
+            [writer, value, OptionsExpressions.Options]);
+        var value = Expression.Parameter(typeof(T), "value");
+        var writes = type
+            .Getters
+            .SelectMany(getter => new[]
+            {
+                WriteName(getter),
+                Serialize(getter.PropertyType, Expression.Property(value, getter))
+            });
+
+        var body = Expression.Block(writes.Prepend(writeMapHeader));
+        var lambda = Expression.Lambda<SerializeDelegate>(body, writer, value, OptionsExpressions.Options);
+        return lambda.Compile();
     }
 
-    public void Serialize(ref MessagePackWriter writer, T value, MessagePackSerializerOptions options)
+    public void Serialize(ref MessagePackWriter writer, T value, MessagePackSerializerOptions options) 
         => serialize(ref writer, value, options);
 }
