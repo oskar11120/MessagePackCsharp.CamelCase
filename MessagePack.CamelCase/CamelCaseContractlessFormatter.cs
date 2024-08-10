@@ -1,5 +1,6 @@
 ﻿using MessagePack.Formatters;
 using MessagePack.Resolvers;
+using System.Collections;
 using System.Linq.Expressions;
 using System.Reflection;
 
@@ -12,7 +13,8 @@ public sealed class CamelCaseContractlessFormatter<T> : IMessagePackFormatter<T>
 
     static CamelCaseContractlessFormatter()
     {
-        if (typeof(T) == typeof(object) || BuiltinResolver.Instance.GetFormatter<T>() is null)
+        if (typeof(T).GetInterface(nameof(IEnumerable)) is null &&
+            BuiltinResolver.Instance.GetFormatter<T>() is null)
         {
             deserialize = CreateDeserializeDelegate();
             Instance = new();
