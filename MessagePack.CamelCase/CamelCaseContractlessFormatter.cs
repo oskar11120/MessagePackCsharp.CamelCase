@@ -8,25 +8,21 @@ namespace MessagePack.CamelCase;
 
 public sealed class CamelCaseContractlessFormatter<T> : IMessagePackFormatter<T>
 {
-    public static readonly CamelCaseContractlessFormatter<T>? Instance;
-    private static readonly DeserializeDelegate deserialize;
+    public static readonly CamelCaseContractlessFormatter<T>? Instance =
+        typeof(T).GetInterface(nameof(IEnumerable)) is null &&
+        BuiltinResolver.Instance.GetFormatter<T>() is null ?
+           new() : null;
 
-    static CamelCaseContractlessFormatter()
-    {
-        if (typeof(T).GetInterface(nameof(IEnumerable)) is null &&
-            BuiltinResolver.Instance.GetFormatter<T>() is null)
-        {
-            deserialize = CreateDeserializeDelegate();
-            Instance = new();
-        }
-        else
-        {
-            deserialize = null!;
-        }
-    }
+    private delegate void SerializeDelegate(ref MessagePackWriter writer, T value, MessagePackSerializerOptions options);
+    private delegate T DeserializeDelegate(ref MessagePackReader reader, MessagePackSerializerOptions options);
+
+    private readonly SerializeDelegate serialize;
+    private readonly DeserializeDelegate deserialize;
 
     private CamelCaseContractlessFormatter()
     {
+        serialize = null!;
+        deserialize = CreateDeserializeDelegate();
     }
 
     private sealed class SetterLocal : Local
@@ -42,8 +38,6 @@ public sealed class CamelCaseContractlessFormatter<T> : IMessagePackFormatter<T>
         public ParameterExpression Expression
             => expression ??= System.Linq.Expressions.Expression.Variable(Type, Name);
     }
-
-    private delegate T DeserializeDelegate(ref MessagePackReader reader, MessagePackSerializerOptions options);
 
     private static MethodCallExpression IgnoreCaseEqual(Expression one, Expression other)
         => Expression.Call(
@@ -133,8 +127,10 @@ public sealed class CamelCaseContractlessFormatter<T> : IMessagePackFormatter<T>
         return result;
     }
 
+
+
+
+
     public void Serialize(ref MessagePackWriter writer, T value, MessagePackSerializerOptions options)
-    {
-        throw new NotImplementedException();
-    }
+        => serialize(ref writer, value, options);
 }
