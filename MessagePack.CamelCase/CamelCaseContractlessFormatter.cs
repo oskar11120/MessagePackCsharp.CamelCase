@@ -92,7 +92,7 @@ public sealed class CamelCaseContractlessFormatter<T> : IMessagePackFormatter<T>
         Expression ReadAndAssignPropertyToLocal()
         {
             var propertyNameLocal = Expression.Variable(typeof(string));
-            var trySetLocal = locals.Aggregate(
+            var trySetLocal = locals.Reverse().Aggregate(
                 Expression.Empty() as Expression,
                 (otherwise, local) => Expression.IfThenElse(
                     IgnoreCaseEqual(propertyNameLocal, Expression.Constant(local.Name)),
@@ -101,7 +101,7 @@ public sealed class CamelCaseContractlessFormatter<T> : IMessagePackFormatter<T>
                         Deserialize(local.Type)),
                     otherwise));
             return Expression.Block(
-                locals.Select(local => local.Expression).Append(propertyNameLocal),
+                [propertyNameLocal],
                 Expression.Assign(propertyNameLocal, readPropertyName),
                 trySetLocal);
         }
@@ -116,14 +116,7 @@ public sealed class CamelCaseContractlessFormatter<T> : IMessagePackFormatter<T>
                     Expression.Break(resultLabel, CreateResult())),
                 resultLabel));
         var lambda = Expression.Lambda<DeserializeDelegate>(body, reader, options);
-        try
-        {
-            return lambda.Compile();
-        }
-        catch (Exception ex)
-        {
-            throw;
-        }
+        return lambda.Compile();
     }
 
     public T Deserialize(ref MessagePackReader reader, MessagePackSerializerOptions options)
