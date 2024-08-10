@@ -103,8 +103,8 @@ public sealed class CamelCaseContractlessFormatter<T> : IMessagePackFormatter<T>
         }
 
         var readMapHeader = Expression.Call(reader, nameof(MessagePackReader.ReadMapHeader), null, null);
-        var mapLengthLocal = Expression.Variable(typeof(int), "length");
-        var mapIndexLocal = Expression.Variable(typeof(int), "index");
+        var mapLengthLocal = Expression.Variable(typeof(int));
+        var mapIndexLocal = Expression.Variable(typeof(int));
         var incrementIndex_anythingLeft = Expression.Block(
             Expression.Assign(mapIndexLocal, Expression.Increment(mapIndexLocal)),
             Expression.LessThanOrEqual(mapIndexLocal, mapLengthLocal));
