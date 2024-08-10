@@ -66,11 +66,11 @@ public class BuiltInMixed : Tests<Models.BuiltInMixed>
 
 public class MixedNested : Tests<Models.MixedNested>
 {
-    protected override Models.MixedNested Expectation 
-        => new(new("aaa", 5) { StringNonCtor = "bbb", IntNonCtor = 6 }, 10.5) 
+    protected override Models.MixedNested Expectation
+        => new(new("aaa", 5) { StringNonCtor = "bbb", IntNonCtor = 6 }, 10.5)
         {
             NestedNonCtor = new("ccc", 7) { StringNonCtor = "ddd", IntNonCtor = 8 },
-            DoubleNonCtor = 10.6 
+            DoubleNonCtor = 10.6
         };
 }
 
@@ -81,6 +81,8 @@ public abstract class Tests<TExpectation>
         .WithResolver(CompositeResolver.Create(
             CamelCaseContractlessFormatterResolver.Instance,
             ContractlessStandardResolver.Instance));
+    private static readonly MessagePackSerializerOptions optionWithCompression =
+        options.WithCompression(MessagePackCompression.Lz4BlockArray);
     protected abstract TExpectation Expectation { get; }
 
     [Test]
@@ -97,6 +99,15 @@ public abstract class Tests<TExpectation>
     {
         var serialized = MessagePackSerializer.Serialize(Expectation, ContractlessStandardResolver.Options);
         var result = MessagePackSerializer.Deserialize<TExpectation>(serialized.AsMemory(), options);
+        Assert.That(result, Is.EqualTo(Expectation));
+    }
+
+    [Test]
+    public void Compression()
+    {
+        var serialized = MessagePackSerializer.Serialize(Expectation, optionWithCompression);
+        TestContext.WriteLine(MessagePackSerializer.ConvertToJson(serialized));
+        var result = MessagePackSerializer.Deserialize<TExpectation>(serialized.AsMemory(), optionWithCompression);
         Assert.That(result, Is.EqualTo(Expectation));
     }
 }
