@@ -9,7 +9,7 @@
 
   <PropertyGroup>
     <Version>0.9</Version>
-    <Description>(Not only) camel case support for MessagePack.</Description>
+    <Description>Camel case support for MessagePack.</Description>
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <Authors>Oskar Furlepa</Authors>
