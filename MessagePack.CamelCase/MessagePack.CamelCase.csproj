@@ -6,8 +6,31 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <Version>0.9</Version>
+    <Description>Camel case support for MessagePack.</Description>
+    <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <Authors>Oskar Furlepa</Authors>
+    <PackageProjectUrl>https://github.com/oskar11120/MessagePackCsharp.CamelCase</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/oskar11120/MessagePackCsharp.CamelCaseg</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>camelcase;camel;dotnet;dotnet8;c-sharp;serialization;serializer;msgpack;messagepack</PackageTags>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="MessagePack" Version="2.5.172" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\LICENSE.txt">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+    <None Include="..\README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
   </ItemGroup>
 
 </Project>
