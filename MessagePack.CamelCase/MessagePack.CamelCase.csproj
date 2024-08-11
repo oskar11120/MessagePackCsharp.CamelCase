@@ -14,7 +14,7 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <Authors>Oskar Furlepa</Authors>
     <PackageProjectUrl>https://github.com/oskar11120/MessagePackCsharp.CamelCase</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/oskar11120/MessagePackCsharp.CamelCaseg</RepositoryUrl>
+    <RepositoryUrl>https://github.com/oskar11120/MessagePackCsharp.CamelCase</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageTags>camelcase;camel;camel-case;dotnet;dotnet8;c-sharp;csharp;serialization;serializer;msgpack;messagepack</PackageTags>
   </PropertyGroup>
