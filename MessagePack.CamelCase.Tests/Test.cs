@@ -76,38 +76,35 @@ public class MixedNested : Tests<Models.MixedNested>
 
 public abstract class Tests<TExpectation>
 {
-    private static readonly MessagePackSerializerOptions options = ContractlessStandardResolver
+    private static readonly MessagePackSerializerOptions camelCaseOptions = ContractlessStandardResolver
         .Options
         .WithResolver(CompositeResolver.Create(
             CamelCaseContractlessFormatterResolver.Instance,
             ContractlessStandardResolver.Instance));
     private static readonly MessagePackSerializerOptions optionWithCompression =
-        options.WithCompression(MessagePackCompression.Lz4BlockArray);
+        camelCaseOptions.WithCompression(MessagePackCompression.Lz4BlockArray);
     protected abstract TExpectation Expectation { get; }
 
     [Test]
     public void SerializationAndDeserialization()
-    {
-        var serialized = MessagePackSerializer.Serialize(Expectation, options);
-        TestContext.WriteLine(MessagePackSerializer.ConvertToJson(serialized));
-        var result = MessagePackSerializer.Deserialize<TExpectation>(serialized.AsMemory(), options);
-        Assert.That(result, Is.EqualTo(Expectation));
-    }
+        => Test(camelCaseOptions);
 
     [Test]
     public void JustDeserialization()
-    {
-        var serialized = MessagePackSerializer.Serialize(Expectation, ContractlessStandardResolver.Options);
-        var result = MessagePackSerializer.Deserialize<TExpectation>(serialized.AsMemory(), options);
-        Assert.That(result, Is.EqualTo(Expectation));
-    }
+        => Test(ContractlessStandardResolver.Options, camelCaseOptions);
 
     [Test]
-    public void Compression()
+    public void Compression() 
+        => Test(camelCaseOptions.WithCompression(MessagePackCompression.Lz4BlockArray));
+
+    private void Test(
+        MessagePackSerializerOptions serializeOptions, 
+        MessagePackSerializerOptions? deserializeOptions = null)
     {
-        var serialized = MessagePackSerializer.Serialize(Expectation, optionWithCompression);
+        deserializeOptions ??= serializeOptions;
+        var serialized = MessagePackSerializer.Serialize(Expectation, serializeOptions);
         TestContext.WriteLine(MessagePackSerializer.ConvertToJson(serialized));
-        var result = MessagePackSerializer.Deserialize<TExpectation>(serialized.AsMemory(), optionWithCompression);
+        var result = MessagePackSerializer.Deserialize<TExpectation>(serialized.AsMemory(), deserializeOptions);
         Assert.That(result, Is.EqualTo(Expectation));
     }
 }
