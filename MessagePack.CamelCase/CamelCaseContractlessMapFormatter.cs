@@ -7,10 +7,11 @@ using System.Text;
 
 namespace MessagePack.CamelCase;
 
-public sealed class CamelCaseContractlessFormatter<T> : IMessagePackFormatter<T>
+public sealed class CamelCaseContractlessMapFormatter<T> : IMessagePackFormatter<T>
 {
-    public static readonly CamelCaseContractlessFormatter<T>? Instance =
+    public static readonly CamelCaseContractlessMapFormatter<T>? Instance =
         typeof(T).GetInterface(nameof(IEnumerable)) is null &&
+        typeof(T).IsEnum is false &&
         BuiltinResolver.Instance.GetFormatter<T>() is null ?
            new() : null;
 
@@ -20,7 +21,7 @@ public sealed class CamelCaseContractlessFormatter<T> : IMessagePackFormatter<T>
     private readonly SerializeDelegate serialize;
     private readonly DeserializeDelegate deserialize;
 
-    private CamelCaseContractlessFormatter()
+    private CamelCaseContractlessMapFormatter()
     {
         deserialize = CreateDeserializeDelegate();
         serialize = CreateSerializeDelegate();

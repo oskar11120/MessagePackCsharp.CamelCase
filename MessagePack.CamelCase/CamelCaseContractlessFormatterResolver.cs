@@ -10,6 +10,8 @@ public sealed class CamelCaseContractlessFormatterResolver : IFormatterResolver
     {
     }
 
-    public IMessagePackFormatter<T>? GetFormatter<T>()
-        => CamelCaseContractlessFormatter<T>.Instance;
+    public IMessagePackFormatter<T>? GetFormatter<T>() => 
+        CamelCaseContractlessMapFormatter<T>.Instance ??
+        CamelCaseAllowingDynamicEnumAsStringFormatter<T>.Instance 
+        as IMessagePackFormatter<T>;
 }

@@ -31,6 +31,12 @@ public static class Models
         public required BuiltInMixed NestedNonCtor { get; init; }
         public required double DoubleNonCtor { get; init; }
     }
+
+    public enum Enum
+    {
+        First,
+        Second
+    }
 }
 
 public class Empty : Tests<Models.Empty>
@@ -59,46 +65,48 @@ public class NonCtorPropertiesNested : Tests<Models.NonCtorPropertiesNested>
         new() { Nested = new() { String = "aaa", Integer = 5 }, Double = 10.5 };
 }
 
+public class Enum : Tests<Models.Enum>
+{
+    protected override Models.Enum Expectation => Models.Enum.Second;
+
+    [Test]
+    public void DeserializationFromCamelCaseText()
+    {
+        var serialized = MessagePackSerializer.ConvertFromJson("\"second\"");
+        var result = MessagePackSerializer.Deserialize<Models.Enum>(serialized.AsMemory(), camelCaseOptions);
+        Assert.That(result, Is.EqualTo(Models.Enum.Second));
+    }
+}
+
 public class BuiltInMixed : Tests<Models.BuiltInMixed>
 {
     protected override Models.BuiltInMixed Expectation => new("aaa", 5) { StringNonCtor = "bbb", IntNonCtor = 6 };
 }
 
-public class MixedNested : Tests<Models.MixedNested>
-{
-    protected override Models.MixedNested Expectation
-        => new(new("aaa", 5) { StringNonCtor = "bbb", IntNonCtor = 6 }, 10.5)
-        {
-            NestedNonCtor = new("ccc", 7) { StringNonCtor = "ddd", IntNonCtor = 8 },
-            DoubleNonCtor = 10.6
-        };
-}
-
 public abstract class Tests<TExpectation>
 {
-    private static readonly MessagePackSerializerOptions camelCaseOptions = ContractlessStandardResolver
+    protected static readonly MessagePackSerializerOptions camelCaseOptions = ContractlessStandardResolver
         .Options
         .WithResolver(CompositeResolver.Create(
             CamelCaseContractlessFormatterResolver.Instance,
             ContractlessStandardResolver.Instance));
-    private static readonly MessagePackSerializerOptions optionWithCompression =
-        camelCaseOptions.WithCompression(MessagePackCompression.Lz4BlockArray);
     protected abstract TExpectation Expectation { get; }
 
     [Test]
-    public void SerializationAndDeserialization()
-        => Test(camelCaseOptions);
+    public void SerializationAndDeserialization() => Test(camelCaseOptions);
 
     [Test]
-    public void JustDeserialization()
-        => Test(ContractlessStandardResolver.Options, camelCaseOptions);
+    public void JustDeserialization() => Test(
+        ContractlessStandardResolver.Options.WithResolver(CompositeResolver.Create(
+            DynamicEnumAsStringResolver.Instance,
+            ContractlessStandardResolver.Instance)), 
+        camelCaseOptions);
 
     [Test]
-    public void Compression() 
-        => Test(camelCaseOptions.WithCompression(MessagePackCompression.Lz4BlockArray));
+    public void Compression() => Test(camelCaseOptions.WithCompression(MessagePackCompression.Lz4BlockArray));
 
     private void Test(
-        MessagePackSerializerOptions serializeOptions, 
+        MessagePackSerializerOptions serializeOptions,
         MessagePackSerializerOptions? deserializeOptions = null)
     {
         deserializeOptions ??= serializeOptions;
