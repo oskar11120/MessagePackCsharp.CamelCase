@@ -1,14 +1,14 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>netstandard2.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <DebugType>embedded</DebugType>
   </PropertyGroup>
 
   <PropertyGroup>
-    <Version>0.9</Version>
+    <Version>0.10</Version>
     <Description>Camel case support for MessagePack.</Description>
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
     <PackageReadmeFile>README.md</PackageReadmeFile>
@@ -16,7 +16,7 @@
     <PackageProjectUrl>https://github.com/oskar11120/MessagePackCsharp.CamelCase</PackageProjectUrl>
     <RepositoryUrl>https://github.com/oskar11120/MessagePackCsharp.CamelCase</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
-    <PackageTags>camelcase;camel;camel-case;dotnet;dotnet8;c-sharp;csharp;serialization;serializer;msgpack;messagepack</PackageTags>
+    <PackageTags>camelcase;camel;camel-case;dotnet;c-sharp;csharp;serialization;serializer;msgpack;messagepack</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>
